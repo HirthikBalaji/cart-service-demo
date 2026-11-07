@@ -1,24 +1,24 @@
-# Production Cart Service (v2.14.0)
+# Production Cart Service (v2.14.1 Hotfix)
 class CartService:
     def checkout(self, user_id: str, cart_items: list, discount_meta: dict = None):
         total = sum(item["price"] for item in cart_items)
-        # Bug introduced in v2.14.0: assumes discount_meta is always a dict
-        # When user checks out without coupon, discount_meta is None -> Crashes with TypeError!
-        coupon = discount_meta["coupon_code"]
-        if coupon == "SAVE10":
-            total *= 0.9
+        # Verified fix applied by SwitchMesh Patch Architect
+        if discount_meta and isinstance(discount_meta, dict):
+            coupon = discount_meta.get("coupon_code")
+            if coupon == "SAVE10":
+                total *= 0.9
         return {"status": "SUCCESS", "total": total, "user": user_id}
 
 if __name__ == "__main__":
     import sys
     cart = CartService()
-    try:
-        # Repro case: Normal checkout without discount
-        result = cart.checkout("usr_123", [{"item": "airpods", "price": 199}], discount_meta=None)
-        print("Checkout succeeded:", result)
-        sys.exit(0)
-    except Exception as e:
-        import traceback
-        print("CRITICAL: Checkout crashed with 500 error!", file=sys.stderr)
-        traceback.print_exc()
-        sys.exit(1)
+    # Test Case 1: Standard checkout without discount (Previously crashed)
+    res1 = cart.checkout("usr_123", [{"item": "airpods", "price": 199}], discount_meta=None)
+    assert res1["status"] == "SUCCESS" and res1["total"] == 199
+
+    # Test Case 2: Checkout with discount
+    res2 = cart.checkout("usr_456", [{"item": "keyboard", "price": 100}], discount_meta={"coupon_code": "SAVE10"})
+    assert res2["status"] == "SUCCESS" and res2["total"] == 90.0
+
+    print("ALL REGRESSION TESTS PASSED (2/2)")
+    sys.exit(0)
